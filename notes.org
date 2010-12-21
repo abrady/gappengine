@@ -1,0 +1,9 @@
+* debug appserver: appengine/tools/dev_appserver.py:
+** CGIDispatcher : class that calls cgi stuff
+*** _setup_env=SetupEnvironment by default. callable that returns env dict
+*** _exec_cgi =ExecuteCGI by default.
+**** => exec_script=ExecuteOrImportScript : s
+***** LoadTargetModule :
+** LoadAppConfig : loads config
+**** create_matcher=CreateURLMatcherFromMaps :
+** URLMatcher : match an URL with a cgi dispatcher

@@ -1,0 +1,14 @@
+application: engineapp
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /hello.cgi 
+  script: hellocgi.py
+
+- url: /hellowebapp.py
+  script: hellowebapp.py
+
+- url: /.*
+  script: cgiform.py
