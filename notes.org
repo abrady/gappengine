@@ -7,3 +7,14 @@
 ** LoadAppConfig : loads config
 **** create_matcher=CreateURLMatcherFromMaps :
 ** URLMatcher : match an URL with a cgi dispatcher
+** clearing database: dev_appserver.py --clear_datastore helloworld/
+* wsgi
+- the wsgi app itself has pattern matching on top of app.yaml
+
+* authentication:
+- user = users.get_current_user() : uses google login
+* plan
+** login to fb
+** upload hello world to google
+** get it talking to facebook
+   
