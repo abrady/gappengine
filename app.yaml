@@ -4,15 +4,7 @@ runtime: python
 api_version: 1
 
 handlers:
-- url: /
-  script: index.py
-
-- url: /(.*)/.*
+# run script named same as directory, 
+# http://localhost/foo/ runs foo/foo.py
+- url: /(.*?)/.*
   script: \1/\1.py
-
-#- url: /helloworld/helloworld.py
-#  script: helloworld/helloworld.py
-
-- url: /.*
-#  script: helloworld/helloworld.py
-  script: not_found.py
