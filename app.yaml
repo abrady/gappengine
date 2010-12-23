@@ -4,7 +4,11 @@ runtime: python
 api_version: 1
 
 handlers:
+
 # run script named same as directory, 
-# http://localhost/foo/ runs foo/foo.py
+# e.g. http://localhost/foo/ runs foo/foo.py
 - url: /(.*?)/.*
   script: \1/\1.py
+
+- url: /.*
+  script: home.py
