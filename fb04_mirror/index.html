@@ -1,0 +1,28 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>Facebook Graph Example</title>
+  </head>
+  <body>
+    {% if current_user %}
+      <p><a href="{{ current_user.profile_url }}"><img src="http://graph.facebook.com/{{ current_user.id }}/picture"/></a></p>
+      <p>You are logged in as {{ current_user.name|escape }}</p>
+      <p><a href="/fb04_mirror/auth/logout">Log out</a></p>
+      {% if graph_response %}
+      <p>
+        <pre>
+          {{ graph_response }}
+        </pre>
+      {% endif %}
+      <p>
+        <form>
+          Graph path: <input type="text" name="graph_path" />
+          <input type="submit" value="submit" />
+        </form>
+    {% else %}
+      <p>You are not yet logged into this site</p>
+      <p><a href="/fb04_mirror/auth/login">Log in with Facebook</a></p>
+    {% endif %}
+  </body>
+</html>

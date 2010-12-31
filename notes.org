@@ -1,20 +1,76 @@
-* debug appserver: appengine/tools/dev_appserver.py:
-** CGIDispatcher : class that calls cgi stuff
-*** _setup_env=SetupEnvironment by default. callable that returns env dict
-*** _exec_cgi =ExecuteCGI by default.
-**** => exec_script=ExecuteOrImportScript : s
-***** LoadTargetModule :
-** LoadAppConfig : loads config
-**** create_matcher=CreateURLMatcherFromMaps :
-** URLMatcher : match an URL with a cgi dispatcher
-** clearing database: dev_appserver.py --clear_datastore helloworld/
-* wsgi
+* google app engine stuff
+** debug appserver: appengine/tools/dev_appserver.py:
+*** CGIDispatcher : class that calls cgi stuff
+**** _setup_env=SetupEnvironment by default. callable that returns env dict
+**** _exec_cgi =ExecuteCGI by default.
+***** => exec_script=ExecuteOrImportScript : s
+****** LoadTargetModule :
+*** LoadAppConfig : loads config
+***** create_matcher=CreateURLMatcherFromMaps :
+*** URLMatcher : match an URL with a cgi dispatcher
+*** clearing database: dev_appserver.py --clear_datastore helloworld/
+** wsgi
 - the wsgi app itself has pattern matching on top of app.yaml
 
-* authentication:
+** authentication:
 - user = users.get_current_user() : uses google login
-* plan
-** login to fb
-** upload hello world to google
-** get it talking to facebook
-   
+* register new users via facebook: 'fb00_register'
+* log user in through facebook, store as cookie, fetch from db
+** user not logged in: get info from facebook, save it to db/client
+*** redirect user to facebook login
+- "https://graph.facebook.com/oauth/authorize?client_id=APP_ID&redirect_uri=http://foo.bar.com/..."
+*** facebook redirect back to LoginHandler
+*** LoginHandler gets info from facebook and saves it to db/client
+**** passed 'code' argument
+ /fb01_oath/auth/login?code=2.l6m0lXndf0TuOZrmapn79A__.3600.1293174000-100000631138754%7CngtV7dEIu1DKqnYzt5nSOzpjvnc
+**** get access token
+- https://graph.facebook.com/oauth/access_token?code=xxx&client_secret=yyy
+- access_token=166075663433750|2.l6m0lXndf0TuOZrmapn79A__.3600.1293174000-100000631138754|PcsaQIvpWvMeBghgDZUW79Q6Qzc&expires=7068
+**** get profile
+- https://graph.facebook.com/me?access_token=zzzz
+- profile = json.load(profile_str)
+- this is a JSON object with fields 'id', 'name', 'link' etc.
+**** save user to db with profile id as key
+- user = User(key_name=str(profile["id"]), id=str(profile["id"]), name=profile["name"], access_token=access_token, profile_url=profile["link"])
+- user.put()
+**** set cookie on client associating it with user in db by profile id
+** user logged in: get info from facebook using data on db
+*** show profile picture, user name
+- using current_user.profile_url: http://graph.facebook.com/{{ current_user.id }}/picture"
+- user name: {{ current_user.name|escape }}, 'escape' escapes a strings html, i.e. < bechome &lt 
+
+*** log out link
+**** /fb01_oath/auth/logout, runs LogoutHandler
+***** expires cookie: set_cookie(self.response, "fb_user", "", expires=time.time() - 86400)
+***** redirect to /fb01_oath
+* facebook javascript
+* Graph API: get info from fb
+** Introspection: get type info for an object
+*** add metadata=1 to url
+- https://graph.facebook.com/331218348435?metadata=1 outputs
+{
+   "name": "Facebook Developer Garage Austin - SXSW Edition",
+   "metadata": {
+      "connections": {
+         "feed": "http://graph.facebook.com/331218348435/feed",
+         "picture": "https://graph.facebook.com/331218348435/picture",
+         "invited": "https://graph.facebook.com/331218348435/invited",
+         "attending": "https://graph.facebook.com/331218348435/attending",
+         "maybe": "https://graph.facebook.com/331218348435/maybe",
+         "noreply": "https://graph.facebook.com/331218348435/noreply",
+         "declined": "https://graph.facebook.com/331218348435/declined"
+      }
+   }
+}
+* plan: group photos together
+** get info about photos:
+*** todos
+**** get albums from a user
+**** get photo info from a user
+**** get date, location, any other keys they can think of
+*** json objects
+**** Album:
+- location
+- id
+**** Photo:
+- tags : user, x,y coords

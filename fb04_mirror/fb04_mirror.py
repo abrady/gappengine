@@ -1,5 +1,4 @@
 import base64
-import urlparse
 import Cookie
 import email.utils
 import hashlib
@@ -9,6 +8,8 @@ import os.path
 import time
 import urllib2
 import urllib # for urlencode
+import cgi    # parse_qs
+import pprint
 #path_to_patched = os.path.join(here, 'lib', 'python2.5', 'site-packages', 'appengine_monkey-0.1dev_r29-py2.5.egg', 'appengine_monkey_files', 'module-replacements', 'httplib.py')
 #execfile(path_to_patched, httplib.__dict__)
 
@@ -22,7 +23,7 @@ from google.appengine.ext.webapp import template
 
 FACEBOOK_APP_ID = "166075663433750"
 FACEBOOK_APP_SECRET = "be98a62f42aee62500d525f11dfac5f1"
-WEB_ROOT = "/" + os.path.splitext(os.path.basename('d:/abs/gappengine/fb01_oath/fb01_oath.py'))[0] + "/"
+WEB_ROOT = "/../"
 
 class User(db.Model):
 	id = db.StringProperty(required=True)
@@ -44,12 +45,39 @@ class BaseHandler(webapp.RequestHandler):
 				self._current_user = User.get_by_key_name(user_id)
 		return self._current_user
 
+	def graph_req(self, path, args=None):
+		""" Request a string from the fb graph
+		path - e.g. me/photos, <id> etc., can be link or object
+		args - arguments to url
+		"""
+		if not args:
+			args = {}
+		if hasattr(self.current_user,"access_token") and not args.has_key("access_token"):
+			args["access_token"] = self.current_user.access_token
+		req_url = "https://graph.facebook.com/" + path + "?" + urllib.urlencode(args)
+		logging.debug("graph_req url:" + req_url)
+		res_str = urllib2.urlopen(req_url).read()
+		logging.debug("path %s returned %s" % (path,res_str))
+		return res_str
+
 
 
 class HomeHandler(BaseHandler):
 	def get(self):
-		path = os.path.join(os.path.dirname(__file__), "oauth.html")
+		path = os.path.join(os.path.dirname(__file__), "index.html")
 		args = dict(current_user=self.current_user)
+
+		logging.root.level = logging.DEBUG
+		logging.debug("GraphHandler")
+		graph_path = self.request.get("graph_path")
+
+		args["graph_response"] = None
+		if graph_path:
+			logging.debug("getting graph object " + graph_path)
+			res = self.graph_req(graph_path)
+			if res:
+				args["graph_response"] = pprint.pformat(res)
+				
 		self.response.out.write(template.render(path, args))
 
 
@@ -63,18 +91,18 @@ class LoginHandler(BaseHandler):
 			logging.debug("got 'code' arg. logged in, query string: " + self.request.query_string)
 			args["client_secret"] = FACEBOOK_APP_SECRET
 			args["code"] = self.request.get("code")
-			access_str = urllib2.urlopen("https://graph.facebook.com/oauth/access_token?" + urllib.urlencode(args)).read()
+			scope = "user_photos,friend_photos,offline_access,publish_stream"
+			access_str = urllib2.urlopen("https://graph.facebook.com/oauth/access_token?" + urllib.urlencode(args) + "&" + scope).read()
 			logging.debug("access str: " + access_str)
-			response = urlparse.parse_qs(access_str)
+			response = cgi.parse_qs(access_str)
 			access_token = response["access_token"][-1]
-
+			
 			# Download the user profile and cache a local instance of the
 			# basic profile info
-			profile_str = urllib2.urlopen(
+			profile_res = urllib2.urlopen(
 				"https://graph.facebook.com/me?"
 				+ urllib.urlencode(dict(access_token=access_token)))
-			logging.debug("profile str: " + profile_str)
-			profile = json.load(profile_str)
+			profile = json.load(profile_res)
 			user = User(key_name=str(profile["id"]), id=str(profile["id"]),
 						name=profile["name"], access_token=access_token,
 						profile_url=profile["link"])
@@ -94,7 +122,7 @@ class LogoutHandler(BaseHandler):
 	def get(self):
 		set_cookie(self.response, "fb_user", "", expires=time.time() - 86400)
 		self.redirect(WEB_ROOT)
-
+			
 
 def set_cookie(response, name, value, domain=None, path="/", expires=None):
 	"""Generates and signs a cookie for the give name/value"""
@@ -149,9 +177,9 @@ class TestPage(webapp.RequestHandler):
 
 def main():
 	run_wsgi_app(webapp.WSGIApplication([
-		(r"/fb01_oath/", HomeHandler),
-		(r"/fb01_oath/auth/login", LoginHandler),
-		(r"/fb01_oath/auth/logout", LogoutHandler),
+		(r"/fb04_mirror/", HomeHandler),
+		(r"/fb04_mirror/auth/login", LoginHandler),
+		(r"/fb04_mirror/auth/logout", LogoutHandler),
 #		('/.*',TestPage),
 	]))
 
