@@ -12,12 +12,14 @@
       {% if graph_response %}
       <p>
         <pre>
-          {{ graph_response }}
+{{ graph_response }}
         </pre>
       {% endif %}
       <p>
         <form>
-          Graph path: <input type="text" name="graph_path" />
+          Graph path (e.g. me/albums, id/photos): <input type="text" name="graph_path" />
+<p/>
+          Post Args (for modifying graph: name=x;message=y): <input type="text" name="post_args" />
           <input type="submit" value="submit" />
         </form>
     {% else %}
