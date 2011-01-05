@@ -94,7 +94,16 @@ class HomeHandler(BaseHandler):
                 graph_path = self.current_user.id + graph_path[2:]
             logging.debug("getting graph object " + graph_path + " post_args " + post_args)
             post_args = urlparse.parse_qs(post_args)
-            res = self.graph.request(graph_path, post_args=post_args)
+            # parse_qs treats everything as an array for some dumb reason, message=foo shows up as { 'message' : ['foo'] }
+            # this fucks up the post as you get [u'foo'] if you post to feed with message=foo
+            for k in post_args:
+                if len(post_args[k]) == 1:
+                    post_args[k] = post_args[k][0]
+            if len(post_args):
+                logging.debug("post args:" + str(post_args))
+                res = self.graph.request(graph_path, post_args=post_args)
+            else:
+                res = self.graph.request(graph_path)
             if res:
                 args["graph_response"] = pprint.pformat(res)
         self.response.out.write(template.render(path, args))
