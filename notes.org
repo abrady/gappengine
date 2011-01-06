@@ -1,3 +1,9 @@
+* Facebook:
+** Bookmarks and Counters
+- bookmarks appear on left column of homepage.
+- if you set a counter, it will remind users to do something.
+** Page Tabs
+- 
 * google app engine stuff
 ** debug appserver: appengine/tools/dev_appserver.py:
 *** CGIDispatcher : class that calls cgi stuff
@@ -74,3 +80,9 @@
 - id
 **** Photo:
 - tags : user, x,y coords
+
+* Canvas
+** fb url: http://apps.facebook.com/abrady_canvas/
+** my url: http://abrady.xen.prgmr.com/fb06_canvas/
+** tab_admin : where tab administrators can go to edit settings
+** tab : page that is requested for tab info.
