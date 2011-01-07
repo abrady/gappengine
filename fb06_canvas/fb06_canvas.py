@@ -10,22 +10,21 @@ import urllib2
 import urllib # for urlencode
 import os.path
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../python-sdk/src'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
-import MultiPartForm # in common
-import facebook
-import wsgiref.handlers
-
 import logging
 import inspect
 from pprint import pformat
+import json
+import wsgiref.handlers
 
 from google.appengine.ext import db
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext.webapp import template
 
-import MultiPartForm
+sys.path.append(os.path.join(os.path.dirname(__file__), '../python-sdk/src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+import MultiPartForm # in common
+import facebook
 
 FACEBOOK_APP_ID = "166075663433750"
 FACEBOOK_APP_SECRET = "be98a62f42aee62500d525f11dfac5f1"
@@ -133,6 +132,22 @@ class BaseHandler(webapp.RequestHandler):
         return facebook._parse_json(s)
 
 
+    def graph_url(self,path,args=None):
+        """get an url for opening a location on the graph. not all objects are JSON-able (like profile pictures
+        """
+        if not args:
+            args = {}
+        if self.current_user.access_token:
+                args["access_token"] = self.current_user.access_token
+        return "https://graph.facebook.com/" + path + "?" + urllib.urlencode(args)
+        
+    def html_graph_pic(self,obj_name):
+        """Helper for making the picture img html for a graph object. i.e. album/picture or me/picture
+        """
+        path =  obj_name + '/picture'
+        return "<img src='" + self.graph_url(path) + "'/>"
+
+
 class HomeHandler(BaseHandler):
     def get(self):
         body_str += "<h1>Use this through facebook, not directly</h1>"
@@ -142,21 +157,56 @@ class HomeHandler(BaseHandler):
                     )
         path = os.path.join(os.path.dirname(__file__), "index.html")
         self.response.out.write(template.render(path, args))
-        
+    
     def post(self):
         #NOTE: remove
         logging.root.level = logging.DEBUG
-
+        #logging.debug("environ: " + pformat(self.request.environ))
         body_str = ""
+
+        args = dict(current_user=self.current_user,
+                    facebook_app_id=FACEBOOK_APP_ID,
+                    )
+        
         if self.current_user:
             logging.debug("current user: %s(%s), access_token:%s" % (self.current_user.name,self.current_user.id,self.current_user.access_token))
 
             albums = self.graph.get_connections('me','albums')
+            args['albums'] = albums
             body_str += "<p><h1>%s albums</h1>" % len(albums['data'])
+            albums_arg = []
             for album in albums['data']:
-                pic_url = "https://graph.facebook.com/" + album['id'] + '/picture' + "?access_token=" + self.current_user.access_token
-                body_str += "<p/><img src='"+pic_url + "'/>"
+                album_select_link = '/fb06_canvas/album_selected?album_id=' + album['id']
+                body_str += "<a href='" + album_select_link + "'>" + self.html_graph_pic(album['id']) + "</a><br/>"
 
+
+        args['body_str'] = body_str
+        
+        path = os.path.join(os.path.dirname(__file__), "index.html")
+        self.response.out.write(template.render(path, args))
+
+class AlbumSelectedHandler(BaseHandler):
+    def get(self):
+        err = ""
+        if not self.current_user:
+            err = "no current user found. "
+        album_id = self.request.get('album_id',None)
+        if not album_id:
+            err += "couldn't get album id."
+        if len(err):
+            self.request.redirect('/fb06_canvas?err=' + urllib.urlencode(err))
+            return
+
+        body = ""
+        album = self.graph.get_object(album_id) # NOTE: cache this
+        friends = self.graph.get_connections('me','friends')
+        
+        for friend in friends['data']:
+            # ex profile pic http://graph.facebook.com/me/picture?access_token=...
+            body += "<a href='fb06_canvas/friend_selected?friend_id=%s&album_id=%s'>" % (album_id, friend['id'])
+            body += self.html_graph_pic(friend['id'])
+            body += '</a><br>'
+        
         args = dict(current_user=self.current_user,
                     facebook_app_id=FACEBOOK_APP_ID,
                     body_str=body_str
@@ -164,6 +214,8 @@ class HomeHandler(BaseHandler):
         path = os.path.join(os.path.dirname(__file__), "index.html")
         self.response.out.write(template.render(path, args))
 
+        
+        
 
 class AlbumHandler(BaseHandler):
     """Albums player has chosen to merge
@@ -174,6 +226,7 @@ def main():
     run_wsgi_app(webapp.WSGIApplication([
 #        (r"/.*/tab_admin/", TabAdminHandler),
 #        (r"/.*/tab/", TabHandler,
+        (r"/.*album_selected", AlbumSelectedHandler),
         (r"/.*", HomeHandler)
         ]))
 
