@@ -162,7 +162,7 @@ class HomeHandler(BaseHandler):
         #NOTE: remove
         logging.root.level = logging.DEBUG
         #logging.debug("environ: " + pformat(self.request.environ))
-        body_str = ""
+        dbg_str = ""
 
         args = dict(current_user=self.current_user,
                     facebook_app_id=FACEBOOK_APP_ID,
@@ -173,17 +173,13 @@ class HomeHandler(BaseHandler):
 
             albums = self.graph.get_connections('me','albums')
             args['albums'] = albums
-            body_str += "<p><h1>%s albums</h1>" % len(albums['data'])
-            albums_arg = []
-            for album in albums['data']:
-                album_select_link = '/fb06_canvas/album_selected?album_id=' + album['id']
-                body_str += "<a href='" + album_select_link + "'>" + self.html_graph_pic(album['id']) + "</a><br/>"
+            dbg_str += "<br>added %i albums" % len(albums)
 
-
-        args['body_str'] = body_str
+        args['dbg_str'] = dbg_str
         
         path = os.path.join(os.path.dirname(__file__), "index.html")
         self.response.out.write(template.render(path, args))
+
 
 class AlbumSelectedHandler(BaseHandler):
     def get(self):
@@ -209,7 +205,7 @@ class AlbumSelectedHandler(BaseHandler):
         
         args = dict(current_user=self.current_user,
                     facebook_app_id=FACEBOOK_APP_ID,
-                    body_str=body_str
+                    dbg_str=dbg_str
                     )
         path = os.path.join(os.path.dirname(__file__), "index.html")
         self.response.out.write(template.render(path, args))

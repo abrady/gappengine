@@ -6,7 +6,7 @@
     <script src="http://connect.facebook.net/en_US/all.js"></script>
   </head>
   <body>
-    <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,offline_access,publish_stream"></fb:login-button>
+    <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,offline_access,publish_stream" onlogin="getAlbums()" ></fb:login-button>
     {% if current_user %}
       <p><a href="{{ current_user.profile_url }}"><img src="http://graph.facebook.com/{{ current_user.id }}/picture?type=square"/></a></p>
       <p>Hello, {{ current_user.name|escape }}</p>
@@ -21,14 +21,39 @@
         FB.Event.subscribe('{% if current_user %}auth.logout{% else %}auth.login{% endif %}', function(response) {
           window.location.reload();
         });
+        window.getAlbums();
       };
       (function() {
         var e = document.createElement('script');
         e.type = 'text/javascript';
-        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+// NOTE: switch back to this later.
+//        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+        e.src = 'http://static.ak.fbcdn.net/connect/en_US/core.debug.js';
         e.async = true;
         document.getElementById('fb-root').appendChild(e);
       }());
     </script>
+<div id="albums"></div>
+
+<script>
+window.getAlbums = function() {
+  FB.api('/me/albums', function(resp) {
+//    if(resp.error)
+      
+//Log.info('Albums', resp);
+    var ul = document.getElementById('albums');
+    for (var i=0, l=resp.data.length; i<l; i++) {
+      var
+        album = resp.data[i],
+        li = document.createElement('li'),
+        a  = document.createElement('a'); 
+      a.innerHTML = "<img src='https://graph.facebook.com/" + album.id + "/picture?access_token={{current_user.access_token}}'>";
+      a.href = album.link;                                     
+      li.appendChild(a);
+      ul.appendChild(li);
+    }
+  });
+};
+</script>
   </body>
 </html>
