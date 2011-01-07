@@ -86,3 +86,22 @@
 ** my url: http://abrady.xen.prgmr.com/fb06_canvas/
 ** tab_admin : where tab administrators can go to edit settings
 ** tab : page that is requested for tab info.
+** permissions
+*** cityville does this:
+http://www.facebook.com/connect/uiserver.php?app_id=291549705119 
+ &next=http://apps.facebook.com/cityville/tracks.php%3Fsrc%3Dads%26aff%3Dfacebook%26crt%3DCV_Acq_US_25-34_20101201_time_1%26signed_request%3DxEWbYizAtrZ6ppiY0Pua-LE-pqEPFlRpUBHx4qXOf-k.eyJhbGdvcml0aG0iOiJITUFDLVNIQTI1NiIsImlzc3VlZF9hdCI6MTI5NDM1OTI0OSwidXNlciI6eyJsb2NhbGUiOiJlbl9VUyIsImNvdW50cnkiOiJ1cyJ9fQ 
+ &display=page
+ &cancel_url=http://fb-0.cityville.zynga.com/tracks.php%3Fsrc%3Dads%26aff%3Dfacebook%26crt%3DCV_Acq_US_25-34_20101201_time_1 
+ &locale=en_US 
+ &perms=email,publish_stream
+ &return_session=1
+ &session_version=3
+ &fbconnect=1
+ &canvas=0
+ &legacy_return=1
+ &method=permissions.request
+
+* FQL
+- https://api.facebook.com/method/fql.query?query=QUERY
+** asking permissions:
+- https://api.facebook.com/method/fql.query?access_token=166075663433750|2.x90z32AZRAx9k_bwN3IoxA__.3600.1294365600-100000631138754|Fyn9A8XxiAfqjJ8TcOWrzDh8Lyo&query=select%20user_photos,friends_photos,offline_access,publish_stream%20from%20permissions%20where%20uid%20=%20me()

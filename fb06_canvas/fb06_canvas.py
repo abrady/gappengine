@@ -12,7 +12,7 @@ import os.path
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../python-sdk/src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
-import MultiPartForm
+import MultiPartForm # in common
 import facebook
 import wsgiref.handlers
 
@@ -52,7 +52,6 @@ def base64_decode(s):
     """
     if(len(s)%4 != 0):
         s += '='*(4-len(s)%4)
-    logging.debug("base64_decode(%s)" % s)
     s = s.encode('ascii') # otherwise 'translate' fails below
     return base64.urlsafe_b64decode(s) 
     
@@ -75,7 +74,7 @@ class BaseHandler(webapp.RequestHandler):
             (encoded_sig, payload) = signed_req.split('.')
             sig = base64_decode(encoded_sig)
             data_str = base64_decode(payload)
-            logging.debug("(sig,payload) = (%s,%s)" % (sig,data_str))
+            #logging.debug("(sig,payload) = (%s,%s)" % (sig,data_str))
             data = facebook._parse_json(data_str)
             
             if data['user_id']:
@@ -84,6 +83,7 @@ class BaseHandler(webapp.RequestHandler):
                 user = User.get_by_key_name(data['user_id'])
                 access_token = data['oauth_token']
                 if not user:
+                    logging.debug("no current user in db. adding user of id %s, access_token:%s" % (data['user_id'], access_token))
                     graph = facebook.GraphAPI(access_token)
                     profile = graph.get_object("me")
                     user = User(key_name=str(profile["id"]),
@@ -93,9 +93,10 @@ class BaseHandler(webapp.RequestHandler):
                                 access_token=access_token)
                     user.put()
                 elif user.access_token != access_token:
+                    logging.debug("new access token for user %s(%s): %s" % (user.name,data['user_id'],access_token))
                     user.access_token = access_token
                     user.put()
-                self._current_user = user
+                self._current_user = user            
         return self._current_user
     
 
@@ -133,31 +134,40 @@ class BaseHandler(webapp.RequestHandler):
 
 
 class HomeHandler(BaseHandler):
-    def post(self):
-        #NOTE: remove
-        logging.root.level = logging.DEBUG
-        logging.debug("HomeHandler.post:" + str(self.request))
-
-        body_str = ""
-        if self.current_user:
-            logging.debug("current user: %s(%s)" % (self.current_user.name,self.current_user.id))
-
-        path = os.path.join(os.path.dirname(__file__), "index.html")
+    def get(self):
+        body_str += "<h1>Use this through facebook, not directly</h1>"
         args = dict(current_user=self.current_user,
                     facebook_app_id=FACEBOOK_APP_ID,
                     body_str=body_str
                     )
+        path = os.path.join(os.path.dirname(__file__), "index.html")
+        self.response.out.write(template.render(path, args))
+        
+    def post(self):
+        #NOTE: remove
+        logging.root.level = logging.DEBUG
+
+        body_str = ""
+        if self.current_user:
+            logging.debug("current user: %s(%s), access_token:%s" % (self.current_user.name,self.current_user.id,self.current_user.access_token))
+
+            albums = self.graph.get_connections('me','albums')
+            body_str += "<p><h1>%s albums</h1>" % len(albums['data'])
+            for album in albums['data']:
+                pic_url = "https://graph.facebook.com/" + album['id'] + '/picture' + "?access_token=" + self.current_user.access_token
+                body_str += "<p/><img src='"+pic_url + "'/>"
+
+        args = dict(current_user=self.current_user,
+                    facebook_app_id=FACEBOOK_APP_ID,
+                    body_str=body_str
+                    )
+        path = os.path.join(os.path.dirname(__file__), "index.html")
         self.response.out.write(template.render(path, args))
 
 
 class AlbumHandler(BaseHandler):
     """Albums player has chosen to merge
     """
-
-def album_match(a,b):
-    """TODO: fuzzy logic here to match two user albums. for now return true
-    """
-    return True
 
 
 def main():

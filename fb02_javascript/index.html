@@ -13,6 +13,17 @@
     {% endif %}
 
     <div id="fb-root"></div>
+    facepile via FBML:
+    <p/><fb:facepile></fb:facepile>
+
+    <p/>facepile via iframe:
+    <p/><iframe src="http://www.facebook.com/plugins/facepile.php? app_id={{facebook_app_id}}" scrolling="no" frameborder="0" style="border:none; overflow:hidden; width:200px;" allowTransparency="true"></iframe> 
+      
+
+      <p/>javascript login
+      <p/><button id="fb-login">Login & Permissions</button>
+
+      <div id="session"></div>
     <script>
       window.fbAsyncInit = function() {
         FB.init({appId: '{{ facebook_app_id }}', status: true, cookie: true,
@@ -20,14 +31,87 @@
         FB.Event.subscribe('{% if current_user %}auth.logout{% else %}auth.login{% endif %}', function(response) {
           window.location.reload();
         });
+      
+        post_fb_init();
       };
       (function() {
         var e = document.createElement('script');
         e.type = 'text/javascript';
-        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+// NOTE: switch back to this later.
+//        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+        e.src = 'http://static.ak.fbcdn.net/connect/en_US/core.debug.js';
         e.async = true;
         document.getElementById('fb-root').appendChild(e);
       }());
+
+function post_fb_init() 
+{
+do_dialog = 0;
+do_login = 1;
+do_session = 0;
+
+if(do_dialog)
+ FB.ui(
+   {
+     method: 'feed',
+     name: 'Facebook Dialogs',
+     link: 'http://developers.facebook.com/docs/reference/dialogs/',
+     picture: 'http://fbrell.com/f8.jpg',
+     caption: 'Reference Documentation',
+     description: 'Dialogs provide a simple, consistent interface for applications to interface with users.',
+     message: 'Facebook Dialogs are easy!'
+   },
+   function(response) {
+     if (response && response.post_id) {
+       alert('Post was published.');
+     } else {
+       alert('Post was not published.');
+     }
+   }
+ );
+
+if(do_login)
+document.getElementById('fb-login').onclick = function() {
+  var cb = function(response) {
+    Log.info('FB.login callback', response);
+    if (response.session) {
+      Log.info('User logged in');
+      if (response.perms) {
+        Log.info('User granted permissions');
+      }
+    } else {
+      Log.info('User is logged out');
+    }
+  };
+  FB.login(cb, { perms : 'user_photos,friends_photos,offline_access,publish_stream' });
+};
+
+if(do_session) {
+var div = document.getElementById('session'),
+  showSession = function(response) {
+    if (!response.session) {
+      div.innerHTML = '<em>Not Connected</em>';
+    } else {
+      var html = '<table>';
+      for (var key in response.session) {
+        html += (
+          '<tr>' +
+            '<th>' + key + '</th>' +
+            '<td>' + response.session[key] + '</td>' +
+          '</tr>'
+        );
+      }
+      div.innerHTML = html;
+    }
+  };
+FB.getLoginStatus(function(response) {
+  showSession(response);
+  FB.Event.subscribe('auth.sessionChange', showSession);
+});
+}
+
+
+}
     </script>
   </body>
 </html>

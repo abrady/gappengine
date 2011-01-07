@@ -3,8 +3,10 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>FB Canvas Integration</title>
+    <script src="http://connect.facebook.net/en_US/all.js"></script>
   </head>
   <body>
+    <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,offline_access,publish_stream"></fb:login-button>
     {% if current_user %}
       <p><a href="{{ current_user.profile_url }}"><img src="http://graph.facebook.com/{{ current_user.id }}/picture?type=square"/></a></p>
       <p>Hello, {{ current_user.name|escape }}</p>
