@@ -70,6 +70,7 @@ class BaseHandler(webapp.RequestHandler):
         if not hasattr(self, "_current_user"):
             self._current_user = None
             signed_req = self.request.get('signed_request')
+            logging.debug('signed_req:' + signed_req)
             (encoded_sig, payload) = signed_req.split('.')
             sig = base64_decode(encoded_sig)
             data_str = base64_decode(payload)
@@ -149,15 +150,6 @@ class BaseHandler(webapp.RequestHandler):
 
 
 class HomeHandler(BaseHandler):
-    def get(self):
-        body_str += "<h1>Use this through facebook, not directly</h1>"
-        args = dict(current_user=self.current_user,
-                    facebook_app_id=FACEBOOK_APP_ID,
-                    body_str=body_str
-                    )
-        path = os.path.join(os.path.dirname(__file__), "index.html")
-        self.response.out.write(template.render(path, args))
-    
     def post(self):
         #NOTE: remove
         logging.root.level = logging.DEBUG

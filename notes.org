@@ -4,6 +4,9 @@
 - if you set a counter, it will remind users to do something.
 ** Page Tabs
 - 
+** Examples
+*** run with friends: https://github.com/facebook/runwithfriends
+- how did I not find this sooner?
 * google app engine stuff
 ** debug appserver: appengine/tools/dev_appserver.py:
 *** CGIDispatcher : class that calls cgi stuff

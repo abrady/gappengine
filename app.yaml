@@ -7,6 +7,11 @@ handlers:
 
 # run script named same as directory, 
 # e.g. http://localhost/foo/ runs foo/foo.py
+
+- url: /(.*\.js)
+  static_files: \1
+  upload: .*\.js
+
 - url: /(.*?)/.*
   script: \1/\1.py
 
