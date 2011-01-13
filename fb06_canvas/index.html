@@ -7,13 +7,8 @@
   </head>
   <body>
     <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,offline_access,publish_stream" onlogin="window.location.reload()" ></fb:login-button>
-    {% if current_user %}
-      <p><a href="{{ current_user.profile_url }}"><img src="http://graph.facebook.com/{{ current_user.id }}/picture?type=square"/></a></p>
-    {% endif %}
-
-      {{ dbg_str }}
-
     <div id="fb-root"></div>
+
     <script>
       window.fbAsyncInit = function() {
         FB.init({appId: '{{ facebook_app_id }}', status: true, cookie: true,
@@ -21,6 +16,7 @@
         FB.Event.subscribe('{% if current_user %}auth.logout{% else %}auth.login{% endif %}', function(response) {
           window.location.reload();
         });
+        albums_init( '{{ current_user.access_token }}', '{{ current_user.id }}' )
         get_my_albums();
       };
       (function() {
@@ -34,8 +30,10 @@
       }());
     </script>
 
-<h1>Welcome to Photo Grabber, {{ current_user.name|escape }}. Use this app to copy pictures from your friends albums into one of your own albums.</h1>
-<div id="root"></div>
+    <h3>Welcome to Photo Grabber, {{ current_user.name|escape }}. Use this app to copy pictures from your friends albums into one of your own albums.</h3>
+    <div id="root"/>
 
+    <h4>Currently grabbing:</h4>
+    <div id="photo_upload_root"/>
   </body>
 </html>

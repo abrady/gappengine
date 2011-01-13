@@ -173,33 +173,50 @@ class HomeHandler(BaseHandler):
         self.response.out.write(template.render(path, args))
 
 
-class AlbumSelectedHandler(BaseHandler):
+class PhotoGrabbedHandler(BaseHandler):
+    """This class grabs a picture from a friend and re-uploads it to the destination album
+    """
+
+    def graph_put_file(self,path, argname, filename, file, **post_args):
+        """put a file to facebook.
+        - argname : api name, probably 'source'
+        - filename: name of file itself, i.e. foo.jpg
+        """
+        form = MultipartForm.MultiPartForm()
+        form.add_field('access_token', self.current_user.access_token)
+        for a in post_args:
+            logging.debug("putting arg %s:%s" % (a,post_args[a]))
+            form.add_field(a, post_args[a])
+        form.add_file(argname,filename,file)
+        req = urllib2.Request('https://graph.facebook.com/' + path)
+        body = str(form)
+        req.add_header('Content-type', form.get_content_type())
+        req.add_header('Content-length', len(body))
+        req.add_data(body)
+        s = urllib2.urlopen(req).read()
+        return facebook._parse_json(s)
+
+    
     def get(self):
+        logging.root.level = logging.DEBUG
+        
         err = ""
         if not self.current_user:
             err = "no current user found. "
-        album_id = self.request.get('album_id',None)
+        album_id = self.request.get('dst_album',None)
         if not album_id:
             err += "couldn't get album id."
+        src_photo_id = self.request.get('photo_id',None)
+        if not src_photo_id:
+            err += "couldn't get photo id"
         if len(err):
-            self.request.redirect('/fb06_canvas?err=' + urllib.urlencode(err))
+            logging.debug("error %s grabbing photo" % err)
+            self.error(500)
             return
 
-        body = ""
+
         album = self.graph.get_object(album_id) # NOTE: cache this
-        friends = self.graph.get_connections('me','friends')
-        
-        for friend in friends['data']:
-            # ex profile pic http://graph.facebook.com/me/picture?access_token=...
-            body += "<a href='fb06_canvas/friend_selected?friend_id=%s&album_id=%s'>" % (album_id, friend['id'])
-            body += self.html_graph_pic(friend['id'])
-            body += '</a><br>'
-        
-        args = dict(current_user=self.current_user,
-                    facebook_app_id=FACEBOOK_APP_ID,
-                    dbg_str=dbg_str
-                    )
-        path = os.path.join(os.path.dirname(__file__), "index.html")
+        pic = 
         self.response.out.write(template.render(path, args))
 
         
@@ -214,6 +231,7 @@ def main():
     run_wsgi_app(webapp.WSGIApplication([
 #        (r"/.*/tab_admin/", TabAdminHandler),
 #        (r"/.*/tab/", TabHandler,
+        (r"/.*photo_grabbed",  PhotoGrabbedHandler),
         (r"/.*album_selected", AlbumSelectedHandler),
         (r"/.*", HomeHandler)
         ]))
