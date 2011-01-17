@@ -6,7 +6,7 @@
     <script src="album.js"></script>
   </head>
   <body>
-    <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,offline_access,publish_stream" onlogin="window.location.reload()" ></fb:login-button>
+    <fb:login-button autologoutlink="true" perms="user_photos,friends_photos,publish_stream" onlogin="window.location.reload()" ></fb:login-button>
     <div id="fb-root"></div>
 
     <script>
@@ -22,18 +22,17 @@
       (function() {
         var e = document.createElement('script');
         e.type = 'text/javascript';
-// NOTE: switch back to this later.
-//        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
-        e.src = 'http://static.ak.fbcdn.net/connect/en_US/core.debug.js';
+        e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+//        e.src = 'http://static.ak.fbcdn.net/connect/en_US/core.debug.js';
         e.async = true;
         document.getElementById('fb-root').appendChild(e);
       }());
     </script>
 
-    <h3>Welcome to Photo Grabber, {{ current_user.name|escape }}. Use this app to copy pictures from your friends albums into one of your own albums.</h3>
+    Welcome to Photo Grabber, {{ current_user.name|escape }}. Use this app to copy pictures from your friends albums into one of your own albums.
     <div id="root"/>
 
-    <h4>Currently grabbing:</h4>
-    <div id="photo_upload_root"/>
+    Currently grabbing:
+    <div id="uploading_root"/>
   </body>
 </html>

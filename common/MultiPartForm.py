@@ -1,9 +1,13 @@
 import itertools
+import time
 import mimetools
 import mimetypes
 from cStringIO import StringIO
 import urllib
 import urllib2
+import os
+import random
+import logging
 
 class MultiPartForm(object):
     """Accumulate the data to be used when posting a form."""
@@ -11,7 +15,9 @@ class MultiPartForm(object):
     def __init__(self):
         self.form_fields = []
         self.files = []
-        self.boundary = mimetools.choose_boundary()
+        self.boundary = 'abrady.xen.prgmr.com' +  '.' + str(time.time())
+        # hmm, os.getpid() doesn't work either
+        # mimetools.choose_boundary() : doesn't work in gapp engine socket.gethostname
         return
 
     def get_content_type(self):
@@ -19,7 +25,7 @@ class MultiPartForm(object):
 
     def add_field(self, name, value):
         """Add a simple field to the form data."""
-        self.form_fields.append((name, value))
+        self.form_fields.append((name.encode('ascii'), value.encode('ascii')))
         return
 
     def add_file(self, fieldname, filename, fileHandle, mimetype=None):
@@ -52,8 +58,8 @@ class MultiPartForm(object):
         # Add the files to upload
         parts.extend(
             [ part_boundary,
-              'Content-Disposition: file; name="%s"; filename="%s"' % \
-                 (field_name, filename),
+              ('Content-Disposition: file; name="%s"; filename="%s"' % \
+                 (field_name, filename)).encode('ascii'),
               'Content-Type: %s' % content_type,
               '',
               body,
@@ -66,7 +72,18 @@ class MultiPartForm(object):
         flattened = list(itertools.chain(*parts))
         flattened.append('--' + self.boundary + '--')
         flattened.append('')
+
+        # AB: binary data in python is strange. as soon as you get a str mixed with a unicode object it starts encoding everything
+        # which screws up any 'str' objects you have that aren't actually valid ascii (i.e. >0xa0 chars)
+        # force all strings to be str and you're good, though. hence stuff above
+        # s = ''
+        # for f in flattened:
+        #     logging.debug("part("+str(type(f))+"): " + f[:32])
+        #     s += f
+        #     s += '\r\n'
+        # return s[:-2]
         return '\r\n'.join(flattened)
+
 
 if __name__ == '__main__':
     # Create the form with simple fields

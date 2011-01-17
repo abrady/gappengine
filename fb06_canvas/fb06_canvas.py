@@ -31,6 +31,59 @@ FACEBOOK_APP_SECRET = "be98a62f42aee62500d525f11dfac5f1"
 WEB_ROOT = "/" + os.path.splitext(os.path.basename('d:/abs/gappengine/fb01_oath/fb01_oath.py'))[0] + "/"
 
 
+
+## {{{ http://code.activestate.com/recipes/146306/ (r1)
+import httplib, mimetypes
+
+def post_multipart(host, selector, fields, files):
+    """
+    Post fields and files to an http host as multipart/form-data.
+    fields is a sequence of (name, value) elements for regular form fields.
+    files is a sequence of (name, filename, value) elements for data to be uploaded as files
+    Return the server's response page.
+    """
+    content_type, body = encode_multipart_formdata(fields, files)
+    h = httplib.HTTP(host)
+    h.putrequest('POST', selector)
+    h.putheader('content-type', content_type)
+    h.putheader('content-length', str(len(body)))
+    h.endheaders()
+    h.send(body)
+    errcode, errmsg, headers = h.getreply()
+    return h.file.read()
+
+def encode_multipart_formdata(fields, files):
+    """
+    fields is a sequence of (name, value) elements for regular form fields.
+    files is a sequence of (name, filename, value) elements for data to be uploaded as files
+    Return (content_type, body) ready for httplib.HTTP instance
+    """
+    BOUNDARY = os.path.basename(__file__) +  '.' + str(time.time())
+    CRLF = '\r\n'
+    L = []
+    for (key, value) in fields:
+        L.append('--' + BOUNDARY)
+        L.append('Content-Disposition: form-data; name="%s"' % key)
+        L.append('')
+        L.append(value)
+        for (key, filename, value) in files:
+            L.append('--' + BOUNDARY)
+            L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
+            L.append('Content-Type: %s' % get_content_type(filename))
+            L.append('')
+            L.append(value)
+            L.append('--' + BOUNDARY + '--')
+            L.append('')
+            body = CRLF.join(L)
+            content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
+            return content_type, body
+        
+        def get_content_type(filename):
+            return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+        ## end of http://code.activestate.com/recipes/146306/ }}}
+        
+        
+        
 class User(db.Model):
     id = db.StringProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
@@ -64,9 +117,31 @@ class BaseHandler(webapp.RequestHandler):
     more information.
     """
 
-
-    @property
-    def current_user(self):
+    def set_current_user_from_get(self):
+        if not hasattr(self, "_current_user"):
+            self._current_user = None
+            cookie = facebook.get_user_from_cookie(
+                self.request.cookies, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET)
+            if cookie:
+                # Store a local instance of the user data so we don't need
+                # a round-trip to Facebook on every request
+                user = User.get_by_key_name(cookie["uid"])
+                if not user:
+                    graph = facebook.GraphAPI(cookie["access_token"])
+                    profile = graph.get_object("me")
+                    user = User(key_name=str(profile["id"]),
+                                id=str(profile["id"]),
+                                name=profile["name"],
+                                profile_url=profile["link"],
+                                access_token=cookie["access_token"])
+                    user.put()
+                elif user.access_token != cookie["access_token"]:
+                    user.access_token = cookie["access_token"]
+                    user.put()
+                self._current_user = user
+        
+        
+    def set_current_user_from_post(self):
         if not hasattr(self, "_current_user"):
             self._current_user = None
             signed_req = self.request.get('signed_request')
@@ -97,6 +172,10 @@ class BaseHandler(webapp.RequestHandler):
                     user.access_token = access_token
                     user.put()
                 self._current_user = user            
+        
+
+    @property
+    def current_user(self):
         return self._current_user
     
 
@@ -151,6 +230,7 @@ class BaseHandler(webapp.RequestHandler):
 
 class HomeHandler(BaseHandler):
     def post(self):
+        self.set_current_user_from_post()
         #NOTE: remove
         logging.root.level = logging.DEBUG
         #logging.debug("environ: " + pformat(self.request.environ))
@@ -182,7 +262,7 @@ class PhotoGrabbedHandler(BaseHandler):
         - argname : api name, probably 'source'
         - filename: name of file itself, i.e. foo.jpg
         """
-        form = MultipartForm.MultiPartForm()
+        form = MultiPartForm.MultiPartForm()
         form.add_field('access_token', self.current_user.access_token)
         for a in post_args:
             logging.debug("putting arg %s:%s" % (a,post_args[a]))
@@ -199,12 +279,13 @@ class PhotoGrabbedHandler(BaseHandler):
     
     def get(self):
         logging.root.level = logging.DEBUG
+        self.set_current_user_from_get()
         
         err = ""
         if not self.current_user:
             err = "no current user found. "
-        album_id = self.request.get('dst_album',None)
-        if not album_id:
+        dst_album_id = self.request.get('dst_album',None)
+        if not dst_album_id:
             err += "couldn't get album id."
         src_photo_id = self.request.get('photo_id',None)
         if not src_photo_id:
@@ -214,17 +295,12 @@ class PhotoGrabbedHandler(BaseHandler):
             self.error(500)
             return
 
-
-        album = self.graph.get_object(album_id) # NOTE: cache this
-        pic = 
-        self.response.out.write(template.render(path, args))
-
-        
-        
-
-class AlbumHandler(BaseHandler):
-    """Albums player has chosen to merge
-    """
+        url = "https://graph.facebook.com/"+src_photo_id+"/picture?access_token=" + self.current_user.access_token
+        logging.debug('to album (%s) posting picture: %s' % (dst_album_id, url))
+        pic_handle = urllib2.urlopen(url);
+        res = self.graph_put_file(dst_album_id + '/photos','source', src_photo_id + ".jpg", pic_handle)
+        logging.debug('done posting, got response %s' % res)
+        self.response.out.write(res)
 
 
 def main():
@@ -232,7 +308,6 @@ def main():
 #        (r"/.*/tab_admin/", TabAdminHandler),
 #        (r"/.*/tab/", TabHandler,
         (r"/.*photo_grabbed",  PhotoGrabbedHandler),
-        (r"/.*album_selected", AlbumSelectedHandler),
         (r"/.*", HomeHandler)
         ]))
 

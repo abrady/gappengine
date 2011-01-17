@@ -12,6 +12,14 @@ function _create_img_elt(id)
 }
 
 
+// since chrome doesn't have 'let'
+function _closure_maker(f,a)
+{
+    return function () {
+         f(a); 
+    };
+}
+
 // NOTE: eventually cache state here
 var g_states = [];
 var g_cur_state;
@@ -89,8 +97,8 @@ function get_my_albums()
 {
     FB.api('/me/albums', 'get', {
                access_token: g_access_token
-           }, function(resp) { this.my_albums_received(resp); });
-    g_my_albums = new _create_state_root('my_albums', 'Step 1: Pick an album where you want the photos to be copied to.');
+           }, function(resp) { my_albums_received(resp); });
+    g_my_albums = _create_state_root('my_albums', 'Step 1: Pick an album where you want the photos to be copied to.');
     g_root.appendChild(g_my_albums);
 }
 
@@ -100,14 +108,15 @@ function my_albums_received(resp)
     for (var i=0, l=resp.data.length; i<l; i++) {
         var album = resp.data[i];
         var album_lnk = _create_img_elt(album.id);
-        album_lnk.onclick = function () { dest_album_selected(album.id); };
+        album_lnk.onclick = _closure_maker(dest_album_selected, album);
         g_my_albums.appendChild(album_lnk);
     }
 }
 
 var g_friends;
-function dest_album_selected(dest_album_id)
+function dest_album_selected(dest_album)
 {
+    g_dest_album = dest_album;
     FB.api('/me/friends', 'get', {
                access_token: g_access_token
            }, function(resp) { friends_received(resp); });
@@ -116,15 +125,15 @@ function dest_album_selected(dest_album_id)
 }
 
 
+
 function friends_received(resp)
 {
     for(var i=0; i < resp.data.length; i++)
     {
         var friend         = resp.data[i];
         var friend_lnk     = _create_img_elt(friend.id);
-        friend_lnk.onclick = function () {
-            get_friend_albums(friend.id);
-        };
+        var friend_id      = friend.id;
+        friend_lnk.onclick = _closure_maker(get_friend_albums, friend_id);
         g_friends.appendChild(friend_lnk);
     }
 }
@@ -145,7 +154,8 @@ function friend_albums_received(resp)
     {
         var album = resp.data[i];
         var album_lnk = _create_img_elt(album.id);
-        album_lnk.onclick = function () { friend_album_selected(album.id); };
+        var album_id = album.id;
+        album_lnk.onclick = _closure_maker(friend_album_selected,album_id);
         g_friend_albums.appendChild(album_lnk);        
     }
 }
@@ -164,29 +174,28 @@ function friend_photos_received(resp)
 {
     for(var i = 0; i < resp.data.length; ++i)
     {
-        photo = resp.data[i];
-        photo_lnk = _create_img_elt(photo.id);
-        photo_lnk.onclick = function() { friend_photo_selected(photo.id); };
+        var photo = resp.data[i];
+        var photo_lnk = _create_img_elt(photo.id);
+        photo_lnk.onclick = _closure_maker(friend_photo_selected,resp.data[i]);
         g_friend_photos.appendChild(photo_lnk);
     }
 }
 
 
-function friend_photo_selected(photo_id)
+function friend_photo_selected(photo)
 {
-    alert("grab photo " + photo_id);
-    var node = _create_img_elt(photo_id);
+    var node = _create_img_elt(photo.id);
     g_uploading_root.appendChild(node);
 
     req=new XMLHttpRequest();
-    req.open("GET","photo_grabbed?photo_id="+photo_id+"&dst_album="+g_dest_album_id,true);
+    req.open("GET","photo_grabbed?photo_id="+photo.id+"&dst_album="+g_dest_album_id,true);
     req.onreadystatechange = function (aEvt) {
         if (req.readyState == 4) {
             g_uploading_root.removeChild(node);
             if(req.status == 200)
                 dump(req.responseText);    
             else
-                dump("Error grabbign picture " + photo_id);
+                dump("Error grabbign picture " + photo.id);
         } 
     };
     req.send();
