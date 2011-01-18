@@ -1,14 +1,26 @@
-var g_dest_album_id = 0;  // where the pictures from an album should go.
+var g_dest_album;  // where the pictures from an album should go.
 var g_access_token = 0;
 var g_user_ID = 0;
 var g_friend_photos;      // the results of the friend photo fetch
 var g_states = [];
 
-function _create_img_elt(id)
+function _create_img_elt(id, img_name)
 {
+    var root = document.createElement('div');
     var lnk = document.createElement('img');
+    root.id = id;
     lnk.setAttribute('src',"https://graph.facebook.com/" + id + "/picture?access_token=" + g_access_token);
-    return lnk;
+    lnk.alt = img_name;
+
+    root.appendChild(lnk);
+    // if(img_name)
+    // {
+    //     var name = document.createElement('div');
+    //     name.innerHTML = img_name;
+    //     root.appendChild(name);
+    // }
+    root.style = "hover{color:#ff0080;}";
+    return root;
 }
 
 
@@ -20,11 +32,25 @@ function _closure_maker(f,a)
     };
 }
 
+function _elt_remove_all_children(elt)
+{
+    if(elt && elt.hasChildNodes())
+    {
+        while(elt.childNodes.length > 0)
+            elt.removeChild(elt.firstChild);
+    }
+}
+
+function _elt_replace_children_with(elt,new_child)
+{
+    _elt_remove_all_children(elt);
+    elt.appendChild(new_child);
+}
+
 // NOTE: eventually cache state here
 var g_states = [];
 var g_cur_state;
 var g_root;
-var g_uploading_root;
 
 // NOTE: don't need a state machine yet. a fair amount of repeated code below could be put in a class though.
 
@@ -84,7 +110,6 @@ function _create_state_root(name, heading_txt)
 function albums_init(access_token, uid)
 {
     g_root = document.getElementById('root');
-    g_uploading_root = document.getElementById('uploading_root');
     g_access_token = access_token;
     g_user_ID = uid;
 }
@@ -92,36 +117,61 @@ function albums_init(access_token, uid)
 // fb data
 // show/hide node
 var g_my_albums;
-
+var g_my_albums_resp;
 function get_my_albums() 
 {
-    FB.api('/me/albums', 'get', {
-               access_token: g_access_token
-           }, function(resp) { my_albums_received(resp); });
-    g_my_albums = _create_state_root('my_albums', 'Step 1: Pick an album where you want the photos to be copied to.');
-    g_root.appendChild(g_my_albums);
+    if(!g_my_albums_resp)
+    {
+        FB.api('/me/albums', 'get', {
+                   access_token: g_access_token
+               }, function(resp) { my_albums_received(resp); });
+        g_my_albums = _create_state_root('my_albums', 'Step 1: Pick an album where you want the photos to be copied to.');
+        g_root.appendChild(g_my_albums);
+    }
+    else
+    {
+        my_albums_received(g_my_albums_resp);
+    }
 }
+
 
 
 function my_albums_received(resp)
 {
+    g_my_albums_resp = resp;
     for (var i=0, l=resp.data.length; i<l; i++) {
         var album = resp.data[i];
-        var album_lnk = _create_img_elt(album.id);
+        var album_lnk = _create_img_elt(album.id, album.name);
         album_lnk.onclick = _closure_maker(dest_album_selected, album);
+        album.title = album.name
         g_my_albums.appendChild(album_lnk);
     }
+}
+
+
+function choose_step1()
+{
+    _elt_remove_all_children(g_my_albums);
+    _elt_remove_all_children(g_friends);
+    _elt_remove_all_children(g_friend_albums);
+    _elt_remove_all_children(g_friend_photos);
+    my_albums_received(g_my_albums_resp);
 }
 
 var g_friends;
 function dest_album_selected(dest_album)
 {
     g_dest_album = dest_album;
+    var dst_album_node = document.createTextNode('Step 1: putting photos in album: "' + dest_album.name + '"');
+//    dst_album_node.onclick = choose_step1();
+
+    _elt_replace_children_with(g_my_albums,dst_album_node);
+
     FB.api('/me/friends', 'get', {
                access_token: g_access_token
            }, function(resp) { friends_received(resp); });
     g_friends = _create_state_root('my_friends', 'Step 2: Pick a friend who has pictures you want to grab.');
-    g_root.replaceChild(g_friends, g_my_albums);
+    g_root.appendChild(g_friends);
 }
 
 
@@ -133,18 +183,19 @@ function friends_received(resp)
         var friend         = resp.data[i];
         var friend_lnk     = _create_img_elt(friend.id);
         var friend_id      = friend.id;
-        friend_lnk.onclick = _closure_maker(get_friend_albums, friend_id);
+        friend_lnk.onclick = _closure_maker(get_friend_albums, friend);
         g_friends.appendChild(friend_lnk);
     }
 }
 
 
 var g_friend_albums;
-function get_friend_albums(friend_id)
+function get_friend_albums(friend)
 {
-    FB.api('/'+friend_id+'/albums','get',friend_albums_received);    
-    g_friend_albums = _create_state_root('friend_photos', 'click on the album you\'d like to copy photos from');
-    g_root.replaceChild(g_friend_albums, g_friends);
+    _elt_replace_children_with(g_friends,document.createTextNode("Step 2: grabbing from friend " + friend.name))
+    FB.api('/'+friend.id+'/albums','get',friend_albums_received);    
+    g_friend_albums = _create_state_root('friend_photos', 'Step 3: Click on the album you\'d like to copy photos from.');
+    g_root.appendChild(g_friend_albums);
 }
 
 
@@ -165,7 +216,7 @@ var g_friend_photos;
 function friend_album_selected(album_id)
 {
     FB.api('/'+album_id+'/photos','get',friend_photos_received);
-    g_friend_photos = _create_state_root('friend_photos', 'finally: select photos you\'d like to grab');
+    g_friend_photos = _create_state_root('friend_photos', 'Finally: select photos you\'d like to grab by clicking on them:');
     g_root.replaceChild(g_friend_photos, g_friend_albums);
 }
 
@@ -185,17 +236,22 @@ function friend_photos_received(resp)
 function friend_photo_selected(photo)
 {
     var node = _create_img_elt(photo.id);
-    g_uploading_root.appendChild(node);
+    var access_token = FB.getSession().access_token;
+    var photo_elt = document.getElementById(photo.id);
+    var grab_elt = document.createTextNode("grabbing photo " + photo.id);
+    
+    _elt_replace_children_with(photo_elt, grab_elt);
 
     req=new XMLHttpRequest();
-    req.open("GET","photo_grabbed?photo_id="+photo.id+"&dst_album="+g_dest_album_id,true);
+    req.open("GET","photo_grabbed?photo_id="+photo.id+"&dst_album="+g_dest_album.id+"&access_token="+FB.getSession().access_token,true);
     req.onreadystatechange = function (aEvt) {
         if (req.readyState == 4) {
-            g_uploading_root.removeChild(node);
             if(req.status == 200)
-                dump(req.responseText);    
+            {
+                grab_elt.textContent = photo.id + " uploaded";
+            }
             else
-                dump("Error grabbign picture " + photo.id);
+                alert("Error grabbing picture " + photo.name + '(' + photo.id + ')');
         } 
     };
     req.send();

@@ -34,54 +34,6 @@ WEB_ROOT = "/" + os.path.splitext(os.path.basename('d:/abs/gappengine/fb01_oath/
 
 ## {{{ http://code.activestate.com/recipes/146306/ (r1)
 import httplib, mimetypes
-
-def post_multipart(host, selector, fields, files):
-    """
-    Post fields and files to an http host as multipart/form-data.
-    fields is a sequence of (name, value) elements for regular form fields.
-    files is a sequence of (name, filename, value) elements for data to be uploaded as files
-    Return the server's response page.
-    """
-    content_type, body = encode_multipart_formdata(fields, files)
-    h = httplib.HTTP(host)
-    h.putrequest('POST', selector)
-    h.putheader('content-type', content_type)
-    h.putheader('content-length', str(len(body)))
-    h.endheaders()
-    h.send(body)
-    errcode, errmsg, headers = h.getreply()
-    return h.file.read()
-
-def encode_multipart_formdata(fields, files):
-    """
-    fields is a sequence of (name, value) elements for regular form fields.
-    files is a sequence of (name, filename, value) elements for data to be uploaded as files
-    Return (content_type, body) ready for httplib.HTTP instance
-    """
-    BOUNDARY = os.path.basename(__file__) +  '.' + str(time.time())
-    CRLF = '\r\n'
-    L = []
-    for (key, value) in fields:
-        L.append('--' + BOUNDARY)
-        L.append('Content-Disposition: form-data; name="%s"' % key)
-        L.append('')
-        L.append(value)
-        for (key, filename, value) in files:
-            L.append('--' + BOUNDARY)
-            L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
-            L.append('Content-Type: %s' % get_content_type(filename))
-            L.append('')
-            L.append(value)
-            L.append('--' + BOUNDARY + '--')
-            L.append('')
-            body = CRLF.join(L)
-            content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
-            return content_type, body
-        
-        def get_content_type(filename):
-            return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
-        ## end of http://code.activestate.com/recipes/146306/ }}}
-        
         
         
 class User(db.Model):
@@ -122,6 +74,7 @@ class BaseHandler(webapp.RequestHandler):
             self._current_user = None
             cookie = facebook.get_user_from_cookie(
                 self.request.cookies, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET)
+            logging.debug("getting user from cookie");
             if cookie:
                 # Store a local instance of the user data so we don't need
                 # a round-trip to Facebook on every request
@@ -138,7 +91,10 @@ class BaseHandler(webapp.RequestHandler):
                 elif user.access_token != cookie["access_token"]:
                     user.access_token = cookie["access_token"]
                     user.put()
+                logging.debug("set user %s from cookie" % user.id)
                 self._current_user = user
+            else:
+                logging.debug("no cookie found for fb");    
         
         
     def set_current_user_from_post(self):
@@ -253,7 +209,7 @@ class HomeHandler(BaseHandler):
         self.response.out.write(template.render(path, args))
 
 
-class PhotoGrabbedHandler(BaseHandler):
+class PhotoGrabbedHandler(webapp.RequestHandler):
     """This class grabs a picture from a friend and re-uploads it to the destination album
     """
 
@@ -263,7 +219,7 @@ class PhotoGrabbedHandler(BaseHandler):
         - filename: name of file itself, i.e. foo.jpg
         """
         form = MultiPartForm.MultiPartForm()
-        form.add_field('access_token', self.current_user.access_token)
+        form.add_field('access_token', self.access_token)
         for a in post_args:
             logging.debug("putting arg %s:%s" % (a,post_args[a]))
             form.add_field(a, post_args[a])
@@ -279,11 +235,13 @@ class PhotoGrabbedHandler(BaseHandler):
     
     def get(self):
         logging.root.level = logging.DEBUG
-        self.set_current_user_from_get()
         
         err = ""
-        if not self.current_user:
-            err = "no current user found. "
+        access_token = self.request.get('access_token',None)
+        if not access_token:
+            err = "no access_token passed"
+        self.access_token = access_token
+        
         dst_album_id = self.request.get('dst_album',None)
         if not dst_album_id:
             err += "couldn't get album id."
@@ -291,11 +249,11 @@ class PhotoGrabbedHandler(BaseHandler):
         if not src_photo_id:
             err += "couldn't get photo id"
         if len(err):
-            logging.debug("error %s grabbing photo" % err)
+            logging.debug("error '%s' grabbing photo" % err)
             self.error(500)
             return
 
-        url = "https://graph.facebook.com/"+src_photo_id+"/picture?access_token=" + self.current_user.access_token
+        url = "https://graph.facebook.com/"+src_photo_id+"/picture?access_token=" + access_token
         logging.debug('to album (%s) posting picture: %s' % (dst_album_id, url))
         pic_handle = urllib2.urlopen(url);
         res = self.graph_put_file(dst_album_id + '/photos','source', src_photo_id + ".jpg", pic_handle)

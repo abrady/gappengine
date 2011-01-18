@@ -11,8 +11,10 @@
 
     <script>
       window.fbAsyncInit = function() {
-        FB.init({appId: '{{ facebook_app_id }}', status: true, cookie: true,
-                 xfbml: true});
+        FB.init({appId: '{{ facebook_app_id }}', 
+          status: true, 
+          // cookie: true, AB: no cookies, as chrome blocks 3rd party cookies by default
+          xfbml: true});
         FB.Event.subscribe('{% if current_user %}auth.logout{% else %}auth.login{% endif %}', function(response) {
           window.location.reload();
         });
@@ -30,9 +32,6 @@
     </script>
 
     Welcome to Photo Grabber, {{ current_user.name|escape }}. Use this app to copy pictures from your friends albums into one of your own albums.
-    <div id="root"/>
-
-    Currently grabbing:
-    <div id="uploading_root"/>
+    <div id="root"></div>
   </body>
 </html>
